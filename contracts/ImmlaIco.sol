@@ -91,14 +91,8 @@ contract ImmlaIco is SafeMath {
     // If stopICO is called, then ICO 
     bool public icoStoppedManually = false;
     
-    struct Purchase {
-        address buyer;
-        uint amount;
-        uint weis;
-        bool returned;
-    }
-    // array of purchases info 
-    Purchase[] public purchases;
+    // mapping of ether balances info
+    mapping (address => uint) public balances;
     
     /*
      * Events
@@ -108,6 +102,7 @@ contract ImmlaIco is SafeMath {
     event WithdrawEther();
     event StopIcoManually();
     event SendTokensToFounders(uint founder1Reward, uint founder2Reward, uint founder3Reward);
+    event ReturnFundsFor(address account);
     
     /*
      * Modifiers
@@ -232,8 +227,6 @@ contract ImmlaIco is SafeMath {
     /// @dev Sets new token importer. Only manager can do it
     /// @param _newTokenImporter Address of token importer
     function setNewTokenImporter(address _newTokenImporter) onlyManager {
-        assert(_newTokenImporter != 0x0);
-        
         tokenImporter = _newTokenImporter;
     } 
     
@@ -255,40 +248,43 @@ contract ImmlaIco is SafeMath {
         importedFromPreIco[_account] = true;
     }
     
-    /// @dev Stops ICO manually if it's founded min limit of tokens. Only manager can do it
+    /// @dev Stops ICO manually. Only manager can do it
     function stopIco() onlyManager /* onGoalAchievedOrDeadline */ {
         icoStoppedManually = true;
         StopIcoManually();
     }
     
-    /// @dev If ICO is successful, sends funds to escrow (Only manager can do it). If ICO is failed, returns funds to funders (Anyone can do it)
+    /// @dev If ICO is successful, sends funds to escrow (Only manager can do it). If ICO is failed, sends funds to caller (Anyone can do it)
     function withdrawEther() onGoalAchievedOrDeadline {
-        require(now > icoDeadline || icoStoppedManually || msg.sender == icoManager);
-        
         if (soldTokensOnIco >= minIcoTokenLimit) {
-            if (msg.sender == icoManager && this.balance > 0 && initialized) {
-                assert(escrow.send(this.balance));
-            }
-        } else {
-            returnPurchases();
+            assert(initialized);
+            assert(this.balance > 0);
+            assert(msg.sender == icoManager);
+            
+            escrow.transfer(this.balance);
+            WithdrawEther();
+        } 
+        else {
+            returnFundsFor(msg.sender);
         }
-        WithdrawEther();
     }
     
-    /// @dev Returns funds to funders. Can be called only by contract. Dont removes IMMLA balances. Only manager can do it
-    function returnPurchases() private {
-        for (uint i = 0; i < purchases.length; i++) {
-            if (purchases[i].returned) {
-                continue;
-            }
-            purchases[i].returned = true;
-            assert(purchases[i].buyer.send(purchases[i].weis));
-        }
+    /// @dev Returns funds to funder if ICO is unsuccessful. Dont removes IMMLA balance. Can be called only by manager or contract
+    /// @param _account Address of funder
+    function returnFundsFor(address _account) onGoalAchievedOrDeadline {
+        assert(msg.sender == address(this) || msg.sender == icoManager || msg.sender == _account);
+        assert(soldTokensOnIco < minIcoTokenLimit);
+        assert(balances[_account] > 0);
+        
+        _account.transfer(balances[_account]);
+        balances[_account] = 0;
+        
+        ReturnFundsFor(_account);
     }
     
     /// @dev count tokens that can be sold with amount of money. Can be called only by contract
     /// @param _weis Amount of weis
-    function countTokens(uint _weis) returns(uint) { 
+    function countTokens(uint _weis) private returns(uint) { 
         uint result = 0;
         uint stage;
         for (stage = 0; stage < 4; stage++) {
@@ -343,11 +339,8 @@ contract ImmlaIco is SafeMath {
         removeTokens(boughtTokens);
         soldTokensOnIco = add(soldTokensOnIco, boughtTokens);
         immlaToken.emitTokens(_buyer, boughtTokens);
-        uint currentPurchase = purchases.length++;
-        purchases[currentPurchase].buyer = _buyer;
-        purchases[currentPurchase].amount = boughtTokens;
-        purchases[currentPurchase].weis = msg.value;
-        purchases[currentPurchase].returned = false;
+        
+        balances[_buyer] = add(balances[_buyer], msg.value);
         
         BuyTokens(_buyer, msg.value, boughtTokens);
     }

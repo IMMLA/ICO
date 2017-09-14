@@ -171,8 +171,7 @@ const initContracts = () => initContractsWithParams(0, 0, 0);
 
 
 
-contract('ImmlaIco', function(accounts) { 
-    /*
+contract('ImmlaIco', function(accounts) {
     it("Should be ethers on first account", function (done) {
         getBalance(accounts[0], 'latest')
             .then(function (balance) {
@@ -225,11 +224,12 @@ contract('ImmlaIco', function(accounts) {
             .then(function (immlaTokenAddress) {
                 assert.equal(immlaTokenAddress, contracts.token.address, "There are different addresses of Token");
                 done();
-            })
+            });
     });
     
     it("Should be protection by variable 'icoContract'", function (done) {
         var immlaToken;
+        
         deployedContracts()
             .then(function (_contracts) {
                 immlaToken = _contracts.token;
@@ -237,29 +237,24 @@ contract('ImmlaIco', function(accounts) {
             })
             .then(function (icoContractAddress) {
                 assert.equal(icoContractAddress, ImmlaIco.address, "Addresses are different");
-                return immlaToken.emitTokens(hackerVasya, 10000, {from: hackerVasya});
+                return throwable(
+                    immlaToken.emitTokens(hackerVasya, 10000, {from: hackerVasya}),
+                    "emitTokens cant be called by hackerVasya"
+                );
             })
             .then(function () {
-                console.log("emitTokens cant be called by hackerVasya");
-                assert(false, "emitTokens cant be called by hackerVasya");
-            })
-            .catch(function () {
-                return immlaToken.emitTokens(hackerVasya, 10000, {from: manager});
-            })
-            .then(function (result) {
-                console.log("emitTokens cant be called by manager");
-                assert(false, "emitTokens cant be called by manager");
-            })
-            .catch(function (err) {
-                return immlaToken.burnTokens(bountyOwner, 10, {from: manager});
+                return throwable(
+                    immlaToken.emitTokens(hackerVasya, 10000, {from: manager}),
+                    "emitTokens cant be called by manager"
+                );
             })
             .then(function () {
-                console.log("burnTokens cant be called by manager");
-                assert(false, "burnTokens cant be called by manager");
+                return throwable(
+                    immlaToken.burnTokens(bountyOwner, 10, {from: manager}),
+                    "burnTokens cant be called by manager"
+                );
             })
-            .catch(function () {
-                done();
-            });
+            .then(() => { done(); })
     });
     
     it("Should be imported nice", function (done) {
@@ -276,18 +271,14 @@ contract('ImmlaIco', function(accounts) {
                 assert.equal(balance, 0, "Balance of oldUser1 should be zero");
                 return immlaToken.balanceOf.call(oldUser2);
             })
-            .catch(function (err) {
-                console.log("importError 1: ", err);
-            })
             .then(function (balance) {
                 assert.equal(balance, 0, "Balance of oldUser2 should be zero");
-                return immlaIco.importTokens(oldUser1, {from: hackerVasya})
+                return throwable(
+                    immlaIco.importTokens(oldUser1, {from: hackerVasya}),
+                    "hackerVasya cannot import tokens"
+                );
             })
-            .then(function () {
-                console.log("hackerVasya cannot import tokens");
-                assert(false, "hackerVasya cannot import tokens");
-            })
-            .catch(function (err) {
+            .then(function (err) {
                 return immlaIco.importTokens(oldUser1, {from: oldUser1});
             })
             .then(function () {
@@ -300,20 +291,14 @@ contract('ImmlaIco', function(accounts) {
             .then(function () {
                 return immlaToken.balanceOf.call(oldUser2);
             })
-            .catch(function (err) {
-                console.log("Import error 2: " + err);
-            })
             .then(function (balance2) {
                 assert.equal(balance2, value2, "Balances must be equal");
-                return immlaIco.importTokens(oldUser2, {from: manager});
+                return throwable(
+                    immlaIco.importTokens(oldUser2, {from: manager}),
+                    "Balance can be imported only once"
+                );
             })
-            .then(function () {
-                console.log("Balance can be imported only once")
-                assert(false, "Balance can be imported only once");
-            })
-            .catch(function () {
-                done();
-            });
+            .then(() => { done(); })
     });
     
     it("Should be correct setting new manager", function (done) {
@@ -324,13 +309,12 @@ contract('ImmlaIco', function(accounts) {
             .then(function (_contracts) {
                 immlaToken = _contracts.token;
                 immlaIco = _contracts.ico;
-                return immlaIco.setNewManager(hackerVasya, {from: hackerVasya});
+                return throwable(
+                    immlaIco.setNewManager(hackerVasya, {from: hackerVasya}),
+                    "Hacker Vasya can not update manager"
+                );
             })
             .then(function () {
-                console.log("Hacker Vasya can not update manager");
-                assert(false, "Hacker Vasya can not update manager");
-            })
-            .catch(function () {
                 return immlaIco.setNewManager(team, {from: manager});
             })
             .then(function () {
@@ -375,23 +359,16 @@ contract('ImmlaIco', function(accounts) {
             .then(function () {
                 return immlaIco.migrated();
             })
-            .catch(function (err) {
-                console.log("burn tokens err:" + err);
-            })
             .then(function (isMigrated) {
                 assert.equal(isMigrated, true, "ICO is not migrated");
             })
-            .catch(err => console.log("Assert: " + err))
             .then(function () {
-                return immlaIco.burnTokens(oldUser1, 23, {from: manager});
+                return throwable(
+                    immlaIco.burnTokens(oldUser1, 23, {from: manager}),
+                    "Manager can burn tokens after migration"
+                );
             })
-            .then(function () {
-                console.log("Manager can burn tokens after migration");
-                assert(false, "Manager can burn tokens after migration");
-            })
-            .catch(function (err) {
-                done();
-            });
+            .then(() => { done(); })
     });
     
     it("Should be OK with sending funds", function (done) {
@@ -417,21 +394,17 @@ contract('ImmlaIco', function(accounts) {
                 assert.equal(icoBalance.toNumber(), 100, "Balance is not OK");
                 return immlaIco.soldTokensOnIco();
             })
-            .catch(function (err) {
-                console.log(err);
-            })
             .then(function (sold) {
                 assert.equal(sold, 3640 * 100, "Sold other value");
-                return immlaIco.withdrawEther({from: manager});
+                return throwable(
+                    immlaIco.withdrawEther({from: manager}),
+                    "there is applyable withdrawEther"
+                );
             })
             .then(function () {
-                console.log("there is applyable withdrawEther");
-                assert(false, "there is applyable withdrawEther");
-            })
-            .catch(function () {
                 return immlaIco.stopIco({from: manager});
             })
-            .then(function () { done(); })
+            .then(() => { done(); });
     });
     
     
@@ -513,21 +486,31 @@ contract('ImmlaIco', function(accounts) {
                 assert.equal(balance.toNumber(), value1, "There is bad deployed contracts");
                 return sendEthers({from: someUser2, to: contracts.ico.address, value: 1000000000000000000, gas: 500000});
             })
-            .catch(function (err) {
-                console.log('error on sending funds:' + err);
+            .then(function () {
+                return throwable(
+                    contracts.ico.withdrawEther({from: manager}), 
+                    "Manager cant withdraw before OK"
+                );
             })
             .then(function () {
-                return contracts.ico.withdrawEther({from: manager});
-            })
-            .then(function () {
-                console.log("Sorry there is no withdrawEther before stopped or successful ICO");
-                assert(false, "Sorry there is no withdrawEther before stopped or successful ICO");
-            })
-            .catch(function (err) {
                 return contracts.ico.stopIco({from: manager});
             })
             .then(function () {
-                return contracts.ico.withdrawEther({from: manager});
+                return throwable(
+                    contracts.ico.withdrawEther({from: manager}),
+                    "Manager cant withdraw ether for him"
+                );
+            })
+            .then(function () {
+                return throwable(
+                    contracts.ico.returnFundsFor(someUser2, {from: hackerVasya}),
+                    "Hacker Vasya can not return funds for someUser2"
+                );
+            })
+            .then(function () {
+                return contracts.ico.withdrawEther({from: someUser2});
+                // return contracts.ico.returnFundsFor(someUser2, {from: someUser2});
+                // return contracts.ico.returnFundsFor(someUser2, {from: manager});
             })
             .then(function () {
                 return getBalance(someUser2);
@@ -554,17 +537,13 @@ contract('ImmlaIco', function(accounts) {
             .then(function (startDate) {
                 assert(startDate.equals(now - 1000), "There is different times");
             })
-            .catch(err => console.log("Max limit: " + err))
             .then(function () {
-                return sendEthers({from: someUser2, to: contracts.ico.address, value: new BigNumber(46718 * 5).mul(1000000000000000000).toFixed(), gas: 500000});
+                return throwable(
+                    sendEthers({from: someUser2, to: contracts.ico.address, value: new BigNumber(46718 * 5).mul(1000000000000000000).toFixed(), gas: 500000}),
+                    "There is cannot be so much sum"
+                );
             })
-            .then(function () {
-                assert(false, "There is cannot be so much sum");
-                console.log("There is cannot be so much sum");
-            })
-            .catch(function (err) {
-                done();
-            });
+            .then(() => { done(); });
     });
     
     it("Should be broken transaction before starting", function (done) {
@@ -655,8 +634,8 @@ contract('ImmlaIco', function(accounts) {
             })
             .then( () => { done() })
     })
-    */
-    it("Should be imported well", function () {
+    
+    it("Should be imported well", function (done) {
         var preIco;
         var ico;
         var importer;
@@ -665,7 +644,7 @@ contract('ImmlaIco', function(accounts) {
         var user1 = "0x32ba9a7d0423e03a525fe2ebeb661d2085778bd8";
         var user2 = "0x1e2368f7c2fdb0cffc3d2014d6749bb71aa07257";
         
-        return Importer1.new({from: someUser})
+        Importer1.new({from: someUser})
             .then(function (_importer) {
                 importer = _importer;
                 return PreIcoContract.new(user1, value1, user2, value2)
@@ -698,6 +677,7 @@ contract('ImmlaIco', function(accounts) {
             } )
             .then( (user1Bal) => {
                 assert(user1Bal.equals(value1), "Diff balance of user1");
+                done();
             } )
     });
 });
