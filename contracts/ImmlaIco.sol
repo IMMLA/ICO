@@ -269,7 +269,8 @@ contract ImmlaIco is SafeMath {
         }
     }
     
-    /// @dev Returns funds to funder if ICO is unsuccessful. Dont removes IMMLA balance. Can be called only by manager or contract
+    /// @dev Returns funds to funder if ICO is unsuccessful. Dont removes IMMLA balance. Can be called only by manager or contract 
+    /// or user for himself
     /// @param _account Address of funder
     function returnFundsFor(address _account) onGoalAchievedOrDeadline {
         assert(msg.sender == address(this) || msg.sender == icoManager || msg.sender == _account);
