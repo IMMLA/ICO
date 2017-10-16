@@ -3,6 +3,7 @@ var BigNumber = require('bignumber.js');
 var ImmlaIco = artifacts.require("./ImmlaIco.sol");
 var ImmlaToken = artifacts.require("./ImmlaToken.sol");
 var PreIcoContract = artifacts.require("./PreIcoContract.sol");
+var ReturnManager = artifacts.require("./ReturnManager.sol");
 var Importer1 = artifacts.require("./Importer1.sol");
 
 
@@ -50,6 +51,8 @@ const promisify = (inner) =>
             resolve(res);
         })
     );
+    
+const getEmptyThen = () => promisify( cb => { cb(); } );
   
 const getBalance = (account, at) =>
     promisify(cb => web3.eth.getBalance(account, at ? at : 'latest', cb));
@@ -633,8 +636,10 @@ contract('ImmlaIco', function(accounts) {
                 )
             })
             .then( () => { done() })
-    })
-    
+    });
+});
+
+contract('Importer', function (accounts) {
     it("Should be imported well", function (done) {
         var preIco;
         var ico;
@@ -680,4 +685,68 @@ contract('ImmlaIco', function(accounts) {
                 done();
             } )
     });
+});
+
+contract('ReturnManager', function (accounts) {
+    it('should be returnable', function (done) {
+        var now = getBlockTimestamp();
+        var contracts;
+        var balances = [];
+        var newBalances = []; // TODO: check balances
+        var returnManager;
+        var thennable = deployContractsWithParams(now - 1000, now + 1000, now + 5000)
+            .then( _contracts => {
+                contracts = _contracts;
+                
+                var thennable = getEmptyThen();
+                
+                for (var i = 0; i < accounts.length; i++) {
+                    thennable = thennable
+                        .then( (i => () => sendEthers({
+                            from: accounts[i], 
+                            to: contracts.ico.address, 
+                            value: 1234, 
+                            gas: 100000
+                        }))(i) )
+                        .then( (i => () => getBalance(accounts[i]))(i) )
+                        .then( (balance) => { balances.push(balance) } )
+                }
+                return thennable.then( () => ReturnManager.new(contracts.ico.address, {from: manager}) );
+            } )
+            .then( (_returnManager) => {
+                returnManager = _returnManager;
+                
+                return contracts.ico.stopIco({from: manager});
+            } )
+            .then( () => throwable( returnManager.returnFor(accounts), "returnManager cant do returns" ) )
+            .then( () => contracts.ico.setNewManager(returnManager.address, {from: manager}) )
+            .then( () => returnManager.returnFor(accounts.slice(0, 3)) )
+            .then( () => returnManager.returnFor(accounts.slice(3, 6)) )
+            .then( () => {
+                var thennable = getEmptyThen();
+                for (var i = 0; i < accounts.length; i++) {
+                    thennable = thennable
+                        .then( (i => () => getBalance(accounts[i]))(i) )
+                        .then( (balance) => { newBalances.push(balance) } )
+                }
+                return thennable;
+            } )
+            .then( function () {
+                for (var i = 1; i < 6; i++) {
+                    assert(balances[i].add(1234).equals(newBalances[i]), "There must be difference for 1234 tokens to account_" + i);
+                }
+                for (var i = 6; i < accounts.length; i++) {
+                    assert(balances[i].equals(newBalances[i]), "There must be equals balances for account_" + i);
+                }
+            } )
+            .then( () => throwable( contracts.ico.returnFundsFor(accounts[6], {from: manager}), "Manager is not manager now" ) )
+            .then( () => contracts.ico.icoManager() )
+            .then( _icoManger => assert.equal(_icoManger, returnManager.address) )
+            .then( () => returnManager.resetManager({from: manager}) )
+            .then( () => throwable( returnManager.returnFor(accounts.slice(7, 10)), "returnManager cant do returns after all" ) )
+            .then( () => contracts.ico.icoManager() )
+            .then( _icoManger => assert.equal(_icoManger, manager) )
+            .then( () => done() )
+    });
+    
 });
